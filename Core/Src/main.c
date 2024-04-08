@@ -18,10 +18,14 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "usb_host.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+
+#include <stdlib.h>
+#include <string.h>
+
+#include "modulus_modes.h"
 
 /* USER CODE END Includes */
 
@@ -50,6 +54,7 @@ QSPI_HandleTypeDef hqspi;
 
 SAI_HandleTypeDef hsai_BlockA1;
 SAI_HandleTypeDef hsai_BlockB1;
+DMA_HandleTypeDef hdma_sai1_b;
 
 SPI_HandleTypeDef hspi2;
 
@@ -63,6 +68,7 @@ UART_HandleTypeDef huart2;
 void SystemClock_Config(void);
 void PeriphCommonClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_LCD_Init(void);
@@ -70,14 +76,44 @@ static void MX_QUADSPI_Init(void);
 static void MX_SAI1_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_USART2_UART_Init(void);
-void MX_USB_HOST_Process(void);
-
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+uint8_t dma_rx_buffer[DMA_RX_BUFFER_SIZE]={0};
+
+uint8_t dma_rx_buffer1[DMA_RX_BUFFER_SIZE]={0};
+
+uint8_t* current_dma_buffer=dma_rx_buffer;
+
+bool ProcessAudio=false;
+
+bool UseSecondBuffer=false;
+
+
+uint8_t* getBuffer()
+{
+	return UseSecondBuffer ? dma_rx_buffer : dma_rx_buffer1;
+}
+
+void switchBuffer()
+{
+	current_dma_buffer = UseSecondBuffer ? dma_rx_buffer1 : dma_rx_buffer;
+
+	UseSecondBuffer=!UseSecondBuffer;
+}
+
+
+void HAL_SAI_RxCpltCallback(SAI_HandleTypeDef *hsai)
+{
+
+	ProcessAudio=true;
+
+}
+
 
 /* USER CODE END 0 */
 
@@ -113,6 +149,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_I2C1_Init();
   MX_I2C2_Init();
   MX_LCD_Init();
@@ -120,8 +157,10 @@ int main(void)
   MX_SAI1_Init();
   MX_SPI2_Init();
   MX_USART2_UART_Init();
-  MX_USB_HOST_Init();
   /* USER CODE BEGIN 2 */
+
+  // Start ADC DMA recive
+  HAL_SAI_Receive_DMA(&hsai_BlockB1,current_dma_buffer,DMA_RX_BUFFER_SIZE);
 
   /* USER CODE END 2 */
 
@@ -130,7 +169,23 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-    MX_USB_HOST_Process();
+
+	  if(ProcessAudio)
+	  {
+		  // pass it to function
+		  uint8_t* dma_buffer = getBuffer();
+
+		  switchBuffer();
+
+		  HAL_SAI_Receive_DMA(&hsai_BlockB1,getBuffer(),DMA_RX_BUFFER_SIZE);
+
+		  // function to process audio
+		  const char *msg="Processing audio data!";
+
+		  HAL_UART_Transmit(&huart2,(const uint8_t*)msg,strlen(msg),100);
+
+		  ProcessAudio=false;
+	  }
 
     /* USER CODE BEGIN 3 */
   }
@@ -209,16 +264,15 @@ void PeriphCommonClock_Config(void)
 
   /** Initializes the peripherals clock
   */
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_SAI1|RCC_PERIPHCLK_USB;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_SAI1;
   PeriphClkInit.Sai1ClockSelection = RCC_SAI1CLKSOURCE_PLLSAI1;
-  PeriphClkInit.UsbClockSelection = RCC_USBCLKSOURCE_PLLSAI1;
   PeriphClkInit.PLLSAI1.PLLSAI1Source = RCC_PLLSOURCE_MSI;
   PeriphClkInit.PLLSAI1.PLLSAI1M = 1;
   PeriphClkInit.PLLSAI1.PLLSAI1N = 24;
   PeriphClkInit.PLLSAI1.PLLSAI1P = RCC_PLLP_DIV7;
   PeriphClkInit.PLLSAI1.PLLSAI1Q = RCC_PLLQ_DIV2;
   PeriphClkInit.PLLSAI1.PLLSAI1R = RCC_PLLR_DIV2;
-  PeriphClkInit.PLLSAI1.PLLSAI1ClockOut = RCC_PLLSAI1_SAI1CLK|RCC_PLLSAI1_48M2CLK;
+  PeriphClkInit.PLLSAI1.PLLSAI1ClockOut = RCC_PLLSAI1_SAI1CLK;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
     Error_Handler();
@@ -543,6 +597,22 @@ static void MX_USART2_UART_Init(void)
 }
 
 /**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA2_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA2_Channel2_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Channel2_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Channel2_IRQn);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -629,6 +699,14 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : OTG_FS_DM_Pin OTG_FS_DP_Pin */
+  GPIO_InitStruct.Pin = OTG_FS_DM_Pin|OTG_FS_DP_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.Alternate = GPIO_AF10_OTG_FS;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : EXT_RST_Pin GYRO_INT1_Pin */
   GPIO_InitStruct.Pin = EXT_RST_Pin|GYRO_INT1_Pin;
