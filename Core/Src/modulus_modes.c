@@ -10,7 +10,17 @@
 
 #include <stdint.h>
 
-void dummy_mode(uint8_t* input,uint8_t* output);
+void dummy_mode(float* input,float* output)
+{
+	// fft
+	// vector
+
+	// do something
+
+	// rfft
+
+	// outpyt
+}
 
 modulus_mode modes_list[MODES_COUNT]={&dummy_mode};
 
