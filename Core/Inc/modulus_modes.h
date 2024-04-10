@@ -18,7 +18,7 @@ typedef void (*modulus_mode)(uint8_t*,uint8_t*);
 #define MODES_COUNT 1
 
 
-void dummy_mode(uint8_t* input,uint8_t* output);
+void dummy_mode(float* input,float* output);
 
 extern modulus_mode modes_list[MODES_COUNT];
 

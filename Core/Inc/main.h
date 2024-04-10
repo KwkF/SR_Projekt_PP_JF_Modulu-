@@ -33,6 +33,7 @@ extern "C" {
 /* USER CODE BEGIN Includes */
 
 #include <stdbool.h>
+#include <stdint.h>
 
 /* USER CODE END Includes */
 
@@ -51,6 +52,8 @@ extern "C" {
 
 // with 192kHz sample frequency it is equalivent of 4800
 #define DMA_RX_BUFFER_SIZE 4800
+
+#define DMA_BYTE_FRAME_SIZE 4
 
 /* USER CODE END EM */
 

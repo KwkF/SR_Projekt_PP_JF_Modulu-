@@ -83,27 +83,19 @@ static void MX_USART2_UART_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-uint8_t dma_rx_buffer[DMA_RX_BUFFER_SIZE]={0};
+uint8_t dma_rx_buffer[DMA_RX_BUFFER_SIZE*2]={0};
 
-uint8_t dma_rx_buffer1[DMA_RX_BUFFER_SIZE]={0};
+float audio_input_buffer[DMA_RX_BUFFER_SIZE/DMA_BYTE_FRAME_SIZE]={0.0};
 
-uint8_t* current_dma_buffer=dma_rx_buffer;
+float audio_output_buffer[DMA_RX_BUFFER_SIZE/DMA_BYTE_FRAME_SIZE]={0.0};
 
-bool ProcessAudio=false;
+volatile size_t dma_buffer_offset=0;
 
-bool UseSecondBuffer=false;
-
+volatile bool ProcessAudio=false;
 
 uint8_t* getBuffer()
 {
-	return UseSecondBuffer ? dma_rx_buffer : dma_rx_buffer1;
-}
-
-void switchBuffer()
-{
-	current_dma_buffer = UseSecondBuffer ? dma_rx_buffer1 : dma_rx_buffer;
-
-	UseSecondBuffer=!UseSecondBuffer;
+	return dma_rx_buffer+dma_buffer_offset;
 }
 
 
@@ -111,7 +103,41 @@ void HAL_SAI_RxCpltCallback(SAI_HandleTypeDef *hsai)
 {
 
 	ProcessAudio=true;
+	dma_buffer_offset=0;
+	HAL_SAI_Receive_DMA(&hsai_BlockB1,dma_rx_buffer,DMA_RX_BUFFER_SIZE*2);
+}
 
+void HAL_SAI_RxHalfCpltCallback(SAI_HandleTypeDef *hsai)
+{
+
+	ProcessAudio=true;
+	dma_buffer_offset=DMA_RX_BUFFER_SIZE;
+
+}
+
+
+
+void from_uint8_to_floats(uint8_t* input,float* output)
+{
+
+	int32_t *frames=(int32_t*)input;
+
+	for(size_t i=0;i<(DMA_RX_BUFFER_SIZE/DMA_BYTE_FRAME_SIZE);++i)
+	{
+		output[i]=( (float)frames[i] )/INT32_MAX;
+	}
+}
+
+void from_float_to_uint8(float* input,uint8_t* output)
+{
+	int32_t *frames=(int32_t*)output;
+
+	for(size_t i=0;i<(DMA_RX_BUFFER_SIZE/DMA_BYTE_FRAME_SIZE);++i)
+	{
+		int32_t val=(int32_t)(input[i]*INT32_MAX);
+
+		frames[i]=val;
+	}
 }
 
 
@@ -160,7 +186,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   // Start ADC DMA recive
-  HAL_SAI_Receive_DMA(&hsai_BlockB1,current_dma_buffer,DMA_RX_BUFFER_SIZE);
+  HAL_SAI_Receive_DMA(&hsai_BlockB1,dma_rx_buffer,DMA_RX_BUFFER_SIZE*2);
 
   /* USER CODE END 2 */
 
@@ -168,24 +194,24 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */
-
 	  if(ProcessAudio)
-	  {
-		  // pass it to function
-		  uint8_t* dma_buffer = getBuffer();
+	  	  {
+	  		  // pass it to function
+	  		  uint8_t* dma_buffer = getBuffer();
 
-		  switchBuffer();
+	  		  //HAL_SAI_Receive_DMA(&hsai_BlockB1,current_dma_buffer,DMA_RX_BUFFER_SIZE*2);
+	  		  from_uint8_to_floats(dma_buffer,audio_input_buffer);
+	  		  // function to process audio
+	  		  const char *msg="Processing audio data!";
 
-		  HAL_SAI_Receive_DMA(&hsai_BlockB1,getBuffer(),DMA_RX_BUFFER_SIZE);
+	  		  //modes_list[0](audio_input_buffer,audio_output_buffer);
 
-		  // function to process audio
-		  const char *msg="Processing audio data!";
+	  		  HAL_UART_Transmit(&huart2,(const uint8_t*)msg,strlen(msg),100);
 
-		  HAL_UART_Transmit(&huart2,(const uint8_t*)msg,strlen(msg),100);
+	  		  ProcessAudio=false;
+	  	  }
 
-		  ProcessAudio=false;
-	  }
+    /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
@@ -464,7 +490,7 @@ static void MX_SAI1_Init(void)
   hsai_BlockA1.Instance = SAI1_Block_A;
   hsai_BlockA1.Init.Protocol = SAI_FREE_PROTOCOL;
   hsai_BlockA1.Init.AudioMode = SAI_MODEMASTER_TX;
-  hsai_BlockA1.Init.DataSize = SAI_DATASIZE_8;
+  hsai_BlockA1.Init.DataSize = SAI_DATASIZE_32;
   hsai_BlockA1.Init.FirstBit = SAI_FIRSTBIT_MSB;
   hsai_BlockA1.Init.ClockStrobing = SAI_CLOCKSTROBING_FALLINGEDGE;
   hsai_BlockA1.Init.Synchro = SAI_ASYNCHRONOUS;
@@ -476,7 +502,7 @@ static void MX_SAI1_Init(void)
   hsai_BlockA1.Init.MonoStereoMode = SAI_STEREOMODE;
   hsai_BlockA1.Init.CompandingMode = SAI_NOCOMPANDING;
   hsai_BlockA1.Init.TriState = SAI_OUTPUT_NOTRELEASED;
-  hsai_BlockA1.FrameInit.FrameLength = 8;
+  hsai_BlockA1.FrameInit.FrameLength = 256;
   hsai_BlockA1.FrameInit.ActiveFrameLength = 1;
   hsai_BlockA1.FrameInit.FSDefinition = SAI_FS_STARTFRAME;
   hsai_BlockA1.FrameInit.FSPolarity = SAI_FS_ACTIVE_LOW;
@@ -502,7 +528,7 @@ static void MX_SAI1_Init(void)
   hsai_BlockB1.Init.MonoStereoMode = SAI_STEREOMODE;
   hsai_BlockB1.Init.CompandingMode = SAI_NOCOMPANDING;
   hsai_BlockB1.Init.TriState = SAI_OUTPUT_NOTRELEASED;
-  hsai_BlockB1.FrameInit.FrameLength = 8;
+  hsai_BlockB1.FrameInit.FrameLength = 256;
   hsai_BlockB1.FrameInit.ActiveFrameLength = 1;
   hsai_BlockB1.FrameInit.FSDefinition = SAI_FS_STARTFRAME;
   hsai_BlockB1.FrameInit.FSPolarity = SAI_FS_ACTIVE_LOW;
