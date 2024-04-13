@@ -98,6 +98,7 @@ void Error_Handler(void);
 #define JOY_LEFT_EXTI_IRQn EXTI1_IRQn
 #define JOY_RIGHT_Pin GPIO_PIN_2
 #define JOY_RIGHT_GPIO_Port GPIOA
+#define JOY_RIGHT_EXTI_IRQn EXTI2_IRQn
 #define JOY_UP_Pin GPIO_PIN_3
 #define JOY_UP_GPIO_Port GPIOA
 #define JOY_UP_EXTI_IRQn EXTI3_IRQn
@@ -105,6 +106,7 @@ void Error_Handler(void);
 #define MFX_WAKEUP_GPIO_Port GPIOA
 #define JOY_DOWN_Pin GPIO_PIN_5
 #define JOY_DOWN_GPIO_Port GPIOA
+#define JOY_DOWN_EXTI_IRQn EXTI9_5_IRQn
 #define SEG23_Pin GPIO_PIN_6
 #define SEG23_GPIO_Port GPIOA
 #define SEG0_Pin GPIO_PIN_7
@@ -217,6 +219,7 @@ void Error_Handler(void);
 #define I2C1_SDA_GPIO_Port GPIOB
 #define GYRO_INT2_Pin GPIO_PIN_8
 #define GYRO_INT2_GPIO_Port GPIOB
+#define GYRO_INT2_EXTI_IRQn EXTI9_5_IRQn
 #define COM3_Pin GPIO_PIN_9
 #define COM3_GPIO_Port GPIOB
 #define XL_CS_Pin GPIO_PIN_0
