@@ -13,7 +13,7 @@
 // a first argument is input buffer and second is output buffer
 // this is a pointer for a function that will handle the module modes
 
-typedef void (*modulus_mode)(uint8_t*,uint8_t*);
+typedef void (*modulus_mode)(float*,float*);
 
 #define MODES_COUNT 1
 
@@ -21,5 +21,12 @@ typedef void (*modulus_mode)(uint8_t*,uint8_t*);
 void dummy_mode(float* input,float* output);
 
 extern modulus_mode modes_list[MODES_COUNT];
+
+
+typedef struct modulus_config
+{
+	uint8_t mode;
+} modulus_config_t;
+
 
 #endif /* INC_MODULUS_MODES_H_ */

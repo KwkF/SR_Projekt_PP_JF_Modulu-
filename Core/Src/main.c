@@ -83,6 +83,8 @@ static void MX_USART2_UART_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+static modulus_config_t config;
+
 uint8_t dma_rx_buffer[DMA_RX_BUFFER_SIZE*2]={0};
 
 float audio_input_buffer[DMA_RX_BUFFER_SIZE/DMA_BYTE_FRAME_SIZE]={0.0};
@@ -128,17 +130,61 @@ void from_uint8_to_floats(uint8_t* input,float* output)
 	}
 }
 
-void from_float_to_uint8(float* input,uint8_t* output)
+void from_float_to_uint8(float* input,uint8_t* output,size_t input_size)
 {
-	int32_t *frames=(int32_t*)output;
+	//int32_t *frames=(int32_t*)output;
 
-	for(size_t i=0;i<(DMA_RX_BUFFER_SIZE/DMA_BYTE_FRAME_SIZE);++i)
+	for(size_t i=0;i<input_size;++i)
 	{
-		int32_t val=(int32_t)(input[i]*INT32_MAX);
+		int32_t val=(int32_t)(input[i]*INT24_MAX);
 
-		frames[i]=val;
+		//frames[i]=val;
+
+		memmove(output+(i*3),(uint8_t*)&val,3);
 	}
 }
+
+
+// button interrupt
+
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+	switch(GPIO_Pin)
+	{
+		// left, select modes upward
+		case JOY_LEFT_Pin:
+
+			if( config.mode < MODES_COUNT )
+			{
+				config.mode++;
+			}
+
+		break;
+			// right, selecr modes backward
+		case JOY_RIGHT_Pin:
+
+			if( config.mode > 0 )
+			{
+				config.mode--;
+			}
+
+		break;
+			// up
+		case JOY_UP_Pin:
+
+		break;
+			// bottom
+		case JOY_DOWN_Pin:
+
+		break;
+			// center
+		case JOY_CENTER_Pin:
+
+		break;
+	}
+}
+
 
 
 /* USER CODE END 0 */
@@ -185,8 +231,13 @@ int main(void)
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
 
+  // load config from flash
+
+  config.mode=0;
+
   // Start ADC DMA recive
   HAL_SAI_Receive_DMA(&hsai_BlockB1,dma_rx_buffer,DMA_RX_BUFFER_SIZE*2);
+
 
   /* USER CODE END 2 */
 
@@ -518,7 +569,7 @@ static void MX_SAI1_Init(void)
   hsai_BlockB1.Instance = SAI1_Block_B;
   hsai_BlockB1.Init.Protocol = SAI_FREE_PROTOCOL;
   hsai_BlockB1.Init.AudioMode = SAI_MODESLAVE_RX;
-  hsai_BlockB1.Init.DataSize = SAI_DATASIZE_8;
+  hsai_BlockB1.Init.DataSize = SAI_DATASIZE_24;
   hsai_BlockB1.Init.FirstBit = SAI_FIRSTBIT_MSB;
   hsai_BlockB1.Init.ClockStrobing = SAI_CLOCKSTROBING_FALLINGEDGE;
   hsai_BlockB1.Init.Synchro = SAI_SYNCHRONOUS;
@@ -691,11 +742,15 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : JOY_CENTER_Pin JOY_LEFT_Pin JOY_RIGHT_Pin JOY_UP_Pin
-                           JOY_DOWN_Pin */
-  GPIO_InitStruct.Pin = JOY_CENTER_Pin|JOY_LEFT_Pin|JOY_RIGHT_Pin|JOY_UP_Pin
-                          |JOY_DOWN_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  /*Configure GPIO pin : JOY_CENTER_Pin */
+  GPIO_InitStruct.Pin = JOY_CENTER_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(JOY_CENTER_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : JOY_LEFT_Pin JOY_RIGHT_Pin JOY_UP_Pin JOY_DOWN_Pin */
+  GPIO_InitStruct.Pin = JOY_LEFT_Pin|JOY_RIGHT_Pin|JOY_UP_Pin|JOY_DOWN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
@@ -734,12 +789,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Alternate = GPIO_AF10_OTG_FS;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : EXT_RST_Pin GYRO_INT1_Pin */
-  GPIO_InitStruct.Pin = EXT_RST_Pin|GYRO_INT1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_EVT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
-
   /*Configure GPIO pin : GYRO_CS_Pin */
   GPIO_InitStruct.Pin = GYRO_CS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -767,11 +816,21 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(XL_CS_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : XL_INT_Pin */
-  GPIO_InitStruct.Pin = XL_INT_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_EVT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(XL_INT_GPIO_Port, &GPIO_InitStruct);
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI2_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI2_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI3_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */

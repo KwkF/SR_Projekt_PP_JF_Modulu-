@@ -34,6 +34,7 @@ extern "C" {
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 /* USER CODE END Includes */
 
@@ -53,7 +54,13 @@ extern "C" {
 // with 192kHz sample frequency it is equalivent of 4800
 #define DMA_RX_BUFFER_SIZE 4800
 
+#define DMA_TX_BUFFER_SIZE 4800
+
 #define DMA_BYTE_FRAME_SIZE 4
+
+#define DMA_OUTPUT_FRAME_SIZE 3
+
+#define INT24_MAX 8388607
 
 /* USER CODE END EM */
 
@@ -85,16 +92,21 @@ void Error_Handler(void);
 #define VLCD_GPIO_Port GPIOC
 #define JOY_CENTER_Pin GPIO_PIN_0
 #define JOY_CENTER_GPIO_Port GPIOA
+#define JOY_CENTER_EXTI_IRQn EXTI0_IRQn
 #define JOY_LEFT_Pin GPIO_PIN_1
 #define JOY_LEFT_GPIO_Port GPIOA
+#define JOY_LEFT_EXTI_IRQn EXTI1_IRQn
 #define JOY_RIGHT_Pin GPIO_PIN_2
 #define JOY_RIGHT_GPIO_Port GPIOA
+#define JOY_RIGHT_EXTI_IRQn EXTI2_IRQn
 #define JOY_UP_Pin GPIO_PIN_3
 #define JOY_UP_GPIO_Port GPIOA
+#define JOY_UP_EXTI_IRQn EXTI3_IRQn
 #define MFX_WAKEUP_Pin GPIO_PIN_4
 #define MFX_WAKEUP_GPIO_Port GPIOA
 #define JOY_DOWN_Pin GPIO_PIN_5
 #define JOY_DOWN_GPIO_Port GPIOA
+#define JOY_DOWN_EXTI_IRQn EXTI9_5_IRQn
 #define SEG23_Pin GPIO_PIN_6
 #define SEG23_GPIO_Port GPIOA
 #define SEG0_Pin GPIO_PIN_7
@@ -183,12 +195,8 @@ void Error_Handler(void);
 #define OTG_FS_OverCurrent_GPIO_Port GPIOC
 #define OTG_FS_VBUS_Pin GPIO_PIN_11
 #define OTG_FS_VBUS_GPIO_Port GPIOC
-#define EXT_RST_Pin GPIO_PIN_0
-#define EXT_RST_GPIO_Port GPIOD
 #define MEMS_SCK_Pin GPIO_PIN_1
 #define MEMS_SCK_GPIO_Port GPIOD
-#define GYRO_INT1_Pin GPIO_PIN_2
-#define GYRO_INT1_GPIO_Port GPIOD
 #define MEMS_MISO_Pin GPIO_PIN_3
 #define MEMS_MISO_GPIO_Port GPIOD
 #define MEMS_MOSI_Pin GPIO_PIN_4
@@ -211,12 +219,11 @@ void Error_Handler(void);
 #define I2C1_SDA_GPIO_Port GPIOB
 #define GYRO_INT2_Pin GPIO_PIN_8
 #define GYRO_INT2_GPIO_Port GPIOB
+#define GYRO_INT2_EXTI_IRQn EXTI9_5_IRQn
 #define COM3_Pin GPIO_PIN_9
 #define COM3_GPIO_Port GPIOB
 #define XL_CS_Pin GPIO_PIN_0
 #define XL_CS_GPIO_Port GPIOE
-#define XL_INT_Pin GPIO_PIN_1
-#define XL_INT_GPIO_Port GPIOE
 
 /* USER CODE BEGIN Private defines */
 
