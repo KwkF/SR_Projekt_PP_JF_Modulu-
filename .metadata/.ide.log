@@ -1,0 +1,10 @@
+2024-04-22 21:24:38,033 [INFO] Activator:178 - 
+
+
+2024-04-22 21:24:38,037 [INFO] Activator:179 - !SESSION log4j initialized
+2024-04-22 21:30:40,590 [INFO] Activator:178 - 
+
+
+2024-04-22 21:30:40,595 [INFO] Activator:179 - !SESSION log4j initialized
+2024-04-22 21:30:55,581 [INFO] RetryExec:97 - I/O exception (java.net.SocketException) caught when processing request to {}->http://sw-center.st.com:80: Socket closed
+2024-04-22 21:30:55,585 [INFO] RetryExec:113 - Retrying request to {}->http://sw-center.st.com:80

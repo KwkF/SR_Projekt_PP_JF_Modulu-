@@ -62,6 +62,8 @@ extern "C" {
 
 #define INT24_MAX 8388607
 
+#define AUDIO_I2C_ADDR	0x94
+
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/

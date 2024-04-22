@@ -24,6 +24,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "modulus_modes.h"
 
@@ -76,6 +77,7 @@ static void MX_QUADSPI_Init(void);
 static void MX_SAI1_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_USART2_UART_Init(void);
+
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -185,7 +187,28 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	}
 }
 
+/* funkcja do konfiguracji cs */
 
+  static void cs43l22_write(uint8_t reg, uint8_t value)
+  {
+  	HAL_I2C_Mem_Write(&hi2c1, AUDIO_I2C_ADDR, reg, 1, &value, sizeof(value), HAL_MAX_DELAY);
+  }
+
+  //cs44l22_init();
+
+  static void cs43l22_Init(void)
+  {
+
+  	HAL_GPIO_WritePin(AUDIO_RST_GPIO_Port, AUDIO_RST_Pin, GPIO_PIN_SET);
+
+  	/*         rejestr |   co wpisuje do rejestru */
+  	/*                                            */
+  	cs43l22_write(0x04, 0b10101111); /*na rejestrze 0x04 ustawia On na Speaker i OFF na Headphones*/
+  	cs43l22_write(0x06, 0b00010100); /* Slave, SCLK not inverted, DSP on, DAC rigth Justified, 32-bits  */
+  	cs43l22_write(0x02, 0b10011110); /* Power-up*/
+  	cs43l22_write(0x05, 0b10000000); /* Clocking auto*/
+
+  }
 
 /* USER CODE END 0 */
 
@@ -230,6 +253,8 @@ int main(void)
   MX_SPI2_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
+
+  cs43l22_Init();
 
   // load config from flash
 
