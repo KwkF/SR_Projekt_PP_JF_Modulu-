@@ -310,15 +310,11 @@ int main(void)
 
 	  		  ProcessAudio=false;
 
-
-	  	  }else{
-
-	  		  uint8_t* dma_buffer = getBuffer();
-
 	  		  from_float_to_uint8(audio_input_buffer, dma_tx_buffer, ProcessAudio);
+	  	      HAL_SAI_Transmit_DMA(&hsai_BlockB1, dma_tx_buffer, dma_buffer_offset);
+
 
 	  	  }
-
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
