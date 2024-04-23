@@ -9,6 +9,7 @@
 #define INC_MODULUS_MODES_H_
 
 #include <stdint.h>
+#include <arm_math.h>
 
 // a first argument is input buffer and second is output buffer
 // this is a pointer for a function that will handle the module modes
