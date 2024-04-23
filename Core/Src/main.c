@@ -77,7 +77,6 @@ static void MX_QUADSPI_Init(void);
 static void MX_SAI1_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_USART2_UART_Init(void);
-
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
