@@ -89,6 +89,8 @@ static modulus_config_t config;
 
 uint8_t dma_rx_buffer[DMA_RX_BUFFER_SIZE*2]={0};
 
+uint8_t dma_tx_buffer[DMA_TX_BUFFER_SIZE*2]={0};
+
 float audio_input_buffer[DMA_RX_BUFFER_SIZE/DMA_BYTE_FRAME_SIZE]={0.0};
 
 float audio_output_buffer[DMA_RX_BUFFER_SIZE/DMA_BYTE_FRAME_SIZE]={0.0};
@@ -119,6 +121,23 @@ void HAL_SAI_RxHalfCpltCallback(SAI_HandleTypeDef *hsai)
 
 }
 
+
+/*HAL_SAI_Tx*/
+void HAL_SAI_TxCpltCallback(SAI_HandleTypeDef *hsai)
+{
+
+	ProcessAudio=false;
+	dma_buffer_offset=1;
+	HAL_SAI_Transmit_DMA(&hsai_BlockB1,dma_tx_buffer,DMA_TX_BUFFER_SIZE*2);
+}
+
+void HAL_SAI_TxHalfCpltCallback(SAI_HandleTypeDef *hsai)
+{
+
+	ProcessAudio=false;
+	dma_buffer_offset=DMA_TX_BUFFER_SIZE;
+
+}
 
 
 void from_uint8_to_floats(uint8_t* input,float* output)
@@ -263,6 +282,8 @@ int main(void)
   // Start ADC DMA recive
   HAL_SAI_Receive_DMA(&hsai_BlockB1,dma_rx_buffer,DMA_RX_BUFFER_SIZE*2);
 
+  /*Start DAC DMA transmit*/
+  HAL_SAI_Transmit_DMA(&hsai_BlockB1, dma_tx_buffer, DMA_TX_BUFFER_SIZE*2);
 
   /* USER CODE END 2 */
 
@@ -280,13 +301,20 @@ int main(void)
 	  		  // function to process audio
 	  		  const char *msg="Processing audio data!";
 
-	  		  //modes_list[0](audio_input_buffer,audio_output_buffer);
+	  		  modes_list[0](audio_input_buffer,audio_output_buffer);
+
+	  		  /* Audio to DAC*/
+
 
 	  		  HAL_UART_Transmit(&huart2,(const uint8_t*)msg,strlen(msg),100);
 
 	  		  ProcessAudio=false;
-	  	  }
 
+	  		  from_float_to_uint8(audio_input_buffer, dma_tx_buffer, ProcessAudio);
+	  	      HAL_SAI_Transmit_DMA(&hsai_BlockB1, dma_tx_buffer, dma_buffer_offset);
+
+
+	  	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
