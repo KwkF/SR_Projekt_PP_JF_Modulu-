@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <math.h>
 
@@ -56,6 +57,7 @@ QSPI_HandleTypeDef hqspi;
 SAI_HandleTypeDef hsai_BlockA1;
 SAI_HandleTypeDef hsai_BlockB1;
 DMA_HandleTypeDef hdma_sai1_b;
+DMA_HandleTypeDef hdma_sai1_a;
 
 SPI_HandleTypeDef hspi2;
 
@@ -102,19 +104,19 @@ static bool SaveSettings = false;
 
 static modulus_config_t config;
 
-uint8_t dma_rx_buffer[DMA_RX_BUFFER_SIZE*2]={0};
+uint32_t dma_rx_buffer[DMA_RX_BUFFER_SIZE*2]={0};
 
-uint8_t dma_tx_buffer[DMA_TX_BUFFER_SIZE*2]={0};
+uint32_t dma_tx_buffer[DMA_TX_BUFFER_SIZE*2]={0};
 
-float audio_input_buffer[DMA_RX_BUFFER_SIZE/DMA_BYTE_FRAME_SIZE]={0.0};
+float audio_input_buffer[DMA_RX_BUFFER_SIZE]={0.0};
 
-float audio_output_buffer[DMA_RX_BUFFER_SIZE/DMA_BYTE_FRAME_SIZE]={0.0};
+float audio_output_buffer[DMA_RX_BUFFER_SIZE]={0.0};
 
 volatile size_t dma_buffer_offset=0;
 
 volatile bool ProcessAudio=false;
 
-uint8_t* getBuffer()
+uint32_t* getBuffer()
 {
 	return dma_rx_buffer+dma_buffer_offset;
 }
@@ -125,7 +127,8 @@ void HAL_SAI_RxCpltCallback(SAI_HandleTypeDef *hsai)
 
 	ProcessAudio=true;
 	dma_buffer_offset=0;
-	HAL_SAI_Receive_DMA(&hsai_BlockB1,dma_rx_buffer,DMA_RX_BUFFER_SIZE*2);
+
+	HAL_SAI_Receive_DMA(&hsai_BlockB1,(uint8_t*)dma_rx_buffer,DMA_RX_BUFFER_SIZE*2*sizeof(uint32_t));
 }
 
 void HAL_SAI_RxHalfCpltCallback(SAI_HandleTypeDef *hsai)
@@ -138,7 +141,7 @@ void HAL_SAI_RxHalfCpltCallback(SAI_HandleTypeDef *hsai)
 
 
 /*HAL_SAI_Tx*/
-void HAL_SAI_TxCpltCallback(SAI_HandleTypeDef *hsai)
+/*void HAL_SAI_TxCpltCallback(SAI_HandleTypeDef *hsai)
 {
 
 	ProcessAudio=false;
@@ -152,31 +155,29 @@ void HAL_SAI_TxHalfCpltCallback(SAI_HandleTypeDef *hsai)
 	ProcessAudio=false;
 	dma_buffer_offset=DMA_TX_BUFFER_SIZE;
 
-}
+}*/
 
 
-void from_uint8_to_floats(uint8_t* input,float* output)
+void from_uint8_to_floats(uint32_t* input,float* output)
 {
 
-	int32_t *frames=(int32_t*)input;
-
-	for(size_t i=0;i<(DMA_RX_BUFFER_SIZE/DMA_BYTE_FRAME_SIZE);++i)
+	for(size_t i=0;i<(DMA_RX_BUFFER_SIZE);++i)
 	{
-		output[i]=( (float)frames[i] )/INT32_MAX;
+		output[i]=( (float)input[i] )/INT32_MAX;
 	}
 }
 
-void from_float_to_uint8(float* input,uint8_t* output,size_t input_size)
+void from_float_to_uint8(float* input,uint32_t* output,size_t input_size)
 {
 	//int32_t *frames=(int32_t*)output;
 
 	for(size_t i=0;i<input_size;++i)
 	{
-		int32_t val=(int32_t)(input[i]*INT24_MAX);
+		int32_t val=(int32_t)(input[i]*INT32_MAX);
 
 		//frames[i]=val;
 
-		memmove(output+(i*3),(uint8_t*)&val,3);
+		output[i]=val;
 	}
 }
 
@@ -340,6 +341,17 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
   }
 
+  static void cs43l22_set_volume(uint8_t volume)
+  {
+	  // speaker volume
+	  cs43l22_write(0x24, volume);
+	  cs43l22_write(0x25, volume);
+
+	  // headphone volume
+	  cs43l22_write(0x22, volume);
+	  cs43l22_write(0x23, volume);
+  }
+
 // a function to control screen in current mode
 void displayScreen()
 {
@@ -419,10 +431,12 @@ int main(void)
   // load config from flash
 
   config.mode=0;
-  config.volume=50;
+  config.volume=150;
   config.contrast=100;
 
   LCD_SetContrast(&hlcd,config.contrast);
+
+  cs43l22_set_volume(config.volume);
 
   LCD_DisplayStr(&hlcd,"HELLO");
 
@@ -431,10 +445,7 @@ int main(void)
   switchScreen();
 
   // Start ADC DMA recive
-  HAL_SAI_Receive_DMA(&hsai_BlockB1,dma_rx_buffer,DMA_RX_BUFFER_SIZE*2);
-
-  /*Start DAC DMA transmit*/
-  HAL_SAI_Transmit_DMA(&hsai_BlockB1, dma_tx_buffer, DMA_TX_BUFFER_SIZE*2);
+  HAL_SAI_Receive_DMA(&hsai_BlockB1,(uint8_t*)dma_rx_buffer,DMA_RX_BUFFER_SIZE*2*sizeof(uint32_t));
 
   /* USER CODE END 2 */
 
@@ -452,6 +463,7 @@ int main(void)
 		  // update contrast
 		  LCD_SetContrast(&hlcd,config.contrast);
 		  // update volume in DAC
+		  cs43l22_set_volume(config.volume);
 
 		  UpdateSettings=false;
 	  }
@@ -465,14 +477,14 @@ int main(void)
 	  if(ProcessAudio)
 	  	  {
 	  		  // pass it to function
-	  		  uint8_t* dma_buffer = getBuffer();
+	  		  uint32_t* dma_buffer = getBuffer();
 
 	  		  //HAL_SAI_Receive_DMA(&hsai_BlockB1,current_dma_buffer,DMA_RX_BUFFER_SIZE*2);
 	  		  from_uint8_to_floats(dma_buffer,audio_input_buffer);
 	  		  // function to process audio
 	  		  const char *msg="Processing audio data!";
 
-	  		  modes_list[0](audio_input_buffer,audio_output_buffer);
+	  		  modes_list[config.mode](audio_input_buffer,audio_output_buffer);
 
 	  		  /* Audio to DAC*/
 
@@ -481,8 +493,8 @@ int main(void)
 
 	  		  ProcessAudio=false;
 
-	  		  from_float_to_uint8(audio_input_buffer, dma_tx_buffer, ProcessAudio);
-	  	      HAL_SAI_Transmit_DMA(&hsai_BlockB1, dma_tx_buffer, dma_buffer_offset);
+	  		  from_float_to_uint8(audio_output_buffer, dma_tx_buffer, DMA_TX_BUFFER_SIZE);
+	  	      HAL_SAI_Transmit_DMA(&hsai_BlockA1, (uint8_t*)dma_tx_buffer, DMA_TX_BUFFER_SIZE*sizeof(uint32_t));
 
 
 	  	  }
@@ -983,6 +995,9 @@ static void MX_DMA_Init(void)
   __HAL_RCC_DMA2_CLK_ENABLE();
 
   /* DMA interrupt init */
+  /* DMA2_Channel1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Channel1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Channel1_IRQn);
   /* DMA2_Channel2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Channel2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Channel2_IRQn);

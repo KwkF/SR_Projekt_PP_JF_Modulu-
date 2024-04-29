@@ -62,9 +62,9 @@ typedef enum menu_mode{
 /* USER CODE BEGIN EM */
 
 // with 192kHz sample frequency it is equalivent of 4800
-#define DMA_RX_BUFFER_SIZE 4800
+#define DMA_RX_BUFFER_SIZE 1200
 
-#define DMA_TX_BUFFER_SIZE 4800
+#define DMA_TX_BUFFER_SIZE 1200
 
 #define DMA_BYTE_FRAME_SIZE 4
 

@@ -16,7 +16,7 @@
 
 typedef void (*modulus_mode)(float*,float*);
 
-#define MODES_COUNT 1
+#define MODES_COUNT 4
 
 
 void dummy_mode(float* input,float* output);
