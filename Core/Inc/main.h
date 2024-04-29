@@ -37,6 +37,7 @@ extern "C" {
 #include <string.h>
 
 #include "lcd.h"
+#include "flash.h"
 
 /* USER CODE END Includes */
 
