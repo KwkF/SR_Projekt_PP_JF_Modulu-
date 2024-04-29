@@ -43,6 +43,13 @@ extern "C" {
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
 
+typedef enum menu_mode{
+	SELECT_MODULATION=0,
+	CHANGE_CONTRAST,
+	CHANGE_VOLUME,
+	ACCEPT_CHANGES
+} menu_mode_t;
+
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
