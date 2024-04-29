@@ -274,9 +274,18 @@ int main(void)
 
   cs43l22_Init();
 
+
   // load config from flash
 
   config.mode=0;
+  config.volume=50;
+  config.contrast=100;
+
+  LCD_SetContrast(&hlcd,config.contrast);
+
+  LCD_DisplayStr(&hlcd,"HELLO");
+
+  HAL_Delay(2000);
 
   // Start ADC DMA recive
   HAL_SAI_Receive_DMA(&hsai_BlockB1,dma_rx_buffer,DMA_RX_BUFFER_SIZE*2);

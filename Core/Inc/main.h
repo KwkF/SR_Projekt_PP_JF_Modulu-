@@ -36,6 +36,8 @@ extern "C" {
 #include <stdint.h>
 #include <string.h>
 
+#include "lcd.h"
+
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/

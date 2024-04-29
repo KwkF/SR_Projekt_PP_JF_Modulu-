@@ -27,6 +27,8 @@ extern modulus_mode modes_list[MODES_COUNT];
 typedef struct modulus_config
 {
 	uint8_t mode;
+	uint8_t contrast;
+	uint8_t volume;
 } modulus_config_t;
 
 
