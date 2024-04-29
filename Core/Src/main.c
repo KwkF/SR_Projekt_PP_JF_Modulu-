@@ -59,6 +59,9 @@ DMA_HandleTypeDef hdma_sai1_b;
 
 SPI_HandleTypeDef hspi2;
 
+TIM_HandleTypeDef htim6;
+TIM_HandleTypeDef htim7;
+
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
@@ -77,12 +80,25 @@ static void MX_QUADSPI_Init(void);
 static void MX_SAI1_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_TIM6_Init(void);
+static void MX_TIM7_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+static menu_mode_t menu_mode = SELECT_MODULATION;
+
+// refresh LCD display
+static bool LCDRefresh = false;
+
+// apply settings
+static bool UpdateSettings = false;
+
+// save settings to flash
+static bool SaveSettings = false;
 
 static modulus_config_t config;
 
@@ -165,9 +181,50 @@ void from_float_to_uint8(float* input,uint8_t* output,size_t input_size)
 }
 
 
+void switchScreen()
+{
+	switch(menu_mode)
+	{
+		case SELECT_MODULATION:
+			LCD_Clear(&hlcd);
+			LCD_DisplayStr(&hlcd,"MOD");
+		break;
+		case CHANGE_CONTRAST:
+			LCD_Clear(&hlcd);
+			LCD_DisplayStr(&hlcd,"CONT");
+		break;
+		case CHANGE_VOLUME:
+			LCD_Clear(&hlcd);
+			LCD_DisplayStr(&hlcd,"VOL");
+		break;
+		case ACCEPT_CHANGES:
+			LCD_Clear(&hlcd);
+			LCD_DisplayStr(&hlcd,"SAVE?");
+		break;
+	}
+
+	HAL_TIM_Base_Stop_IT(&htim7);
+	HAL_TIM_Base_Start_IT(&htim6);
+}
+
+
+// menu timer interrupt, used to switch between show menu option and show value
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
+{
+	if(htim == &htim6)
+	{
+		// it will run only once
+		HAL_TIM_Base_Stop_IT(&htim6);
+		HAL_TIM_Base_Start_IT(&htim7);
+	}
+	else if(htim == &htim7)
+	{
+		// commence screen update
+		LCDRefresh = true;
+	}
+}
+
 // button interrupt
-
-
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	switch(GPIO_Pin)
@@ -175,31 +232,86 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 		// left, select modes upward
 		case JOY_LEFT_Pin:
 
-			if( config.mode < MODES_COUNT )
+			switch(menu_mode)
 			{
-				config.mode++;
+				case SELECT_MODULATION:
+					if( config.mode < MODES_COUNT )
+					{
+						config.mode++;
+					}
+				break;
+				case CHANGE_CONTRAST:
+					if( config.contrast < 255 )
+					{
+						config.contrast++;
+						UpdateSettings=true;
+					}
+				break;
+				case CHANGE_VOLUME:
+					if( config.volume < 255 )
+					{
+						config.volume++;
+						UpdateSettings=true;
+					}
+				break;
+
 			}
 
 		break;
 			// right, selecr modes backward
 		case JOY_RIGHT_Pin:
 
-			if( config.mode > 0 )
-			{
-				config.mode--;
-			}
+			switch(menu_mode)
+						{
+							case SELECT_MODULATION:
+								if( config.mode > 0 )
+								{
+									config.mode--;
+								}
+							break;
+							case CHANGE_CONTRAST:
+								if( config.contrast > 0 )
+								{
+									config.contrast--;
+									UpdateSettings=true;
+								}
+							break;
+							case CHANGE_VOLUME:
+								if( config.volume > 0 )
+								{
+									config.volume--;
+									UpdateSettings=true;
+								}
+							break;
+
+						}
 
 		break;
 			// up
 		case JOY_UP_Pin:
 
+			if( menu_mode < ACCEPT_CHANGES)
+			{
+				menu_mode++;
+			}
+
 		break;
 			// bottom
 		case JOY_DOWN_Pin:
 
+			if( menu_mode > SELECT_MODULATION)
+			{
+				menu_mode--;
+			}
+
 		break;
 			// center
 		case JOY_CENTER_Pin:
+
+			if( menu_mode == ACCEPT_CHANGES)
+			{
+				SaveSettings=true;
+			}
 
 		break;
 	}
@@ -227,6 +339,34 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   	cs43l22_write(0x05, 0b10000000); /* Clocking auto*/
 
   }
+
+// a function to control screen in current mode
+void displayScreen()
+{
+	char msg[6]={0};
+
+	switch(menu_mode)
+		{
+			case SELECT_MODULATION:
+				sprintf(msg,"%hhx",config.mode);
+				LCD_Clear(&hlcd);
+				LCD_DisplayStr(&hlcd,msg);
+			break;
+			case CHANGE_CONTRAST:
+				sprintf(msg,"%hhx",config.contrast);
+				LCD_Clear(&hlcd);
+				LCD_DisplayStr(&hlcd,msg);
+			break;
+			case CHANGE_VOLUME:
+				sprintf(msg,"%hhx",config.volume);
+				LCD_Clear(&hlcd);
+				LCD_DisplayStr(&hlcd,msg);
+			break;
+			case ACCEPT_CHANGES:
+				return;
+			break;
+		}
+}
 
 /* USER CODE END 0 */
 
@@ -270,10 +410,11 @@ int main(void)
   MX_SAI1_Init();
   MX_SPI2_Init();
   MX_USART2_UART_Init();
+  MX_TIM6_Init();
+  MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
 
   cs43l22_Init();
-
 
   // load config from flash
 
@@ -287,6 +428,8 @@ int main(void)
 
   HAL_Delay(2000);
 
+  switchScreen();
+
   // Start ADC DMA recive
   HAL_SAI_Receive_DMA(&hsai_BlockB1,dma_rx_buffer,DMA_RX_BUFFER_SIZE*2);
 
@@ -299,6 +442,26 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  if(LCDRefresh)
+	  {
+		  displayScreen();
+	  }
+
+	  if(UpdateSettings)
+	  {
+		  // update contrast
+		  LCD_SetContrast(&hlcd,config.contrast);
+		  // update volume in DAC
+
+		  UpdateSettings=false;
+	  }
+
+	  if(SaveSettings)
+	  {
+
+		  SaveSettings=false;
+	  }
+
 	  if(ProcessAudio)
 	  	  {
 	  		  // pass it to function
@@ -696,6 +859,82 @@ static void MX_SPI2_Init(void)
   /* USER CODE BEGIN SPI2_Init 2 */
 
   /* USER CODE END SPI2_Init 2 */
+
+}
+
+/**
+  * @brief TIM6 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM6_Init(void)
+{
+
+  /* USER CODE BEGIN TIM6_Init 0 */
+
+  /* USER CODE END TIM6_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM6_Init 1 */
+
+  /* USER CODE END TIM6_Init 1 */
+  htim6.Instance = TIM6;
+  htim6.Init.Prescaler = 1000;
+  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim6.Init.Period = 65535;
+  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM6_Init 2 */
+
+  /* USER CODE END TIM6_Init 2 */
+
+}
+
+/**
+  * @brief TIM7 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM7_Init(void)
+{
+
+  /* USER CODE BEGIN TIM7_Init 0 */
+
+  /* USER CODE END TIM7_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM7_Init 1 */
+
+  /* USER CODE END TIM7_Init 1 */
+  htim7.Instance = TIM7;
+  htim7.Init.Prescaler = 10;
+  htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim7.Init.Period = 65535;
+  htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim7, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM7_Init 2 */
+
+  /* USER CODE END TIM7_Init 2 */
 
 }
 
