@@ -148,8 +148,8 @@ void HAL_DFSDM_FilterMspInit(DFSDM_Filter_HandleTypeDef* hdfsdm_filter)
     hdma_dfsdm1_flt0.Init.MemInc = DMA_MINC_ENABLE;
     hdma_dfsdm1_flt0.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
     hdma_dfsdm1_flt0.Init.MemDataAlignment = DMA_MDATAALIGN_WORD;
-    hdma_dfsdm1_flt0.Init.Mode = DMA_NORMAL;
-    hdma_dfsdm1_flt0.Init.Priority = DMA_PRIORITY_LOW;
+    hdma_dfsdm1_flt0.Init.Mode = DMA_CIRCULAR;
+    hdma_dfsdm1_flt0.Init.Priority = DMA_PRIORITY_VERY_HIGH;
     if (HAL_DMA_Init(&hdma_dfsdm1_flt0) != HAL_OK)
     {
       Error_Handler();

@@ -85,6 +85,8 @@ static void MX_DFSDM1_Init(void);
 static void MX_SAI1_Init(void);
 /* USER CODE BEGIN PFP */
 
+#define SaturaLH(N, L, H) (((N)<(L))?(L):(((N)>(H))?(H):(N)))
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -105,9 +107,9 @@ static volatile bool SaveSettings = false;
 
 static modulus_config_t config;
 
-uint32_t dma_rx_buffer[DMA_RX_BUFFER_SIZE*2]={0};
+int32_t dma_rx_buffer[DMA_RX_BUFFER_SIZE*2]={0};
 
-uint32_t dma_tx_buffer[DMA_TX_BUFFER_SIZE*2]={0};
+int32_t dma_tx_buffer[DMA_TX_BUFFER_SIZE*2]={0};
 
 float audio_input_buffer[DMA_RX_BUFFER_SIZE]={0.0};
 
@@ -117,29 +119,24 @@ volatile size_t dma_buffer_offset=0;
 
 volatile bool ProcessAudio=false;
 
-uint32_t* getBuffer()
+int32_t* getBuffer()
 {
 	return dma_rx_buffer+dma_buffer_offset;
 }
 
 
-void HAL_SAI_RxCpltCallback(SAI_HandleTypeDef *hsai)
+void HAL_DFSDM_FilterRegConvCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filter)
 {
-
-	ProcessAudio=true;
-	dma_buffer_offset=0;
-
-	//HAL_SAI_Receive_DMA(&hsai_BlockB1,(uint8_t*)dma_rx_buffer,DMA_RX_BUFFER_SIZE*2*sizeof(uint32_t));
-}
-
-void HAL_SAI_RxHalfCpltCallback(SAI_HandleTypeDef *hsai)
-{
-
 	ProcessAudio=true;
 	dma_buffer_offset=DMA_RX_BUFFER_SIZE;
-
+	//HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, dma_rx_buffer, DMA_RX_BUFFER_SIZE*2);
 }
 
+void HAL_DFSDM_FilterRegConvHalfCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_filter)
+{
+	ProcessAudio=true;
+	dma_buffer_offset=0;
+}
 
 /*HAL_SAI_Tx*/
 /*void HAL_SAI_TxCpltCallback(SAI_HandleTypeDef *hsai)
@@ -159,16 +156,18 @@ void HAL_SAI_TxHalfCpltCallback(SAI_HandleTypeDef *hsai)
 }*/
 
 
-void from_uint8_to_floats(uint32_t* input,float* output)
+void from_uint8_to_floats(int32_t* input,float* output)
 {
 
 	for(size_t i=0;i<(DMA_RX_BUFFER_SIZE);++i)
 	{
-		output[i]=( (float)input[i] )/INT32_MAX;
+		int16_t sample = SaturaLH((input[i] >> 8), -32768, 32767);
+		output[i] = sample/32767.f;
 	}
+
 }
 
-void from_float_to_uint8(float* input,uint32_t* output,size_t input_size)
+void from_float_to_uint8(float* input,int32_t* output,size_t input_size)
 {
 	//int32_t *frames=(int32_t*)output;
 
@@ -460,14 +459,16 @@ int main(void)
 
   // Start ADC DMA recive
   //HAL_StatusTypeDef err=HAL_SAI_Receive_DMA(&hsai_BlockB1,(uint8_t*)dma_rx_buffer,DMA_RX_BUFFER_SIZE*2*sizeof(uint32_t));
+  HAL_StatusTypeDef err=HAL_DFSDM_FilterRegularStart_DMA(&hdfsdm1_filter0, dma_rx_buffer, DMA_RX_BUFFER_SIZE*2);
 
-  /*if(err!=HAL_OK)
+
+  if(err!=HAL_OK)
   {
 	  const char *msg="Something went wrong!";
 
 
 	  HAL_UART_Transmit(&huart2,(const uint8_t*)msg,strlen(msg),100);
-  }*/
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -507,24 +508,24 @@ int main(void)
 	  if(ProcessAudio)
 	  	  {
 	  		  // pass it to function
-	  		  uint32_t* dma_buffer = getBuffer();
+	  		  int32_t* dma_buffer = getBuffer();
 
 	  		  //HAL_SAI_Receive_DMA(&hsai_BlockB1,current_dma_buffer,DMA_RX_BUFFER_SIZE*2);
 	  		  from_uint8_to_floats(dma_buffer,audio_input_buffer);
 	  		  // function to process audio
-	  		  const char *msg="Processing audio data!";
+	  		  char msg[100]={0};
 
 	  		  modes_list[config.mode](audio_input_buffer,audio_output_buffer);
 
 	  		  /* Audio to DAC*/
-
+	  		  sprintf(msg,"Hello %d \n",dma_buffer[0]);
 
 	  		  HAL_UART_Transmit(&huart2,(const uint8_t*)msg,strlen(msg),100);
 
 	  		  ProcessAudio=false;
 
-	  		  from_float_to_uint8(audio_output_buffer, dma_tx_buffer, DMA_TX_BUFFER_SIZE);
-	  	      HAL_SAI_Transmit_DMA(&hsai_BlockA1, (uint8_t*)dma_tx_buffer, DMA_TX_BUFFER_SIZE*sizeof(uint32_t));
+	  		  //from_float_to_uint8(audio_output_buffer, dma_tx_buffer, DMA_TX_BUFFER_SIZE);
+	  	      //HAL_SAI_Transmit_DMA(&hsai_BlockA1, (uint8_t*)dma_tx_buffer, DMA_TX_BUFFER_SIZE*sizeof(uint32_t));
 
 
 	  	  }
@@ -616,6 +617,11 @@ static void MX_DFSDM1_Init(void)
   hdfsdm1_filter0.Init.RegularParam.Trigger = DFSDM_FILTER_SW_TRIGGER;
   hdfsdm1_filter0.Init.RegularParam.FastMode = ENABLE;
   hdfsdm1_filter0.Init.RegularParam.DmaMode = ENABLE;
+  hdfsdm1_filter0.Init.InjectedParam.Trigger = DFSDM_FILTER_SW_TRIGGER;
+  hdfsdm1_filter0.Init.InjectedParam.ScanMode = ENABLE;
+  hdfsdm1_filter0.Init.InjectedParam.DmaMode = DISABLE;
+  hdfsdm1_filter0.Init.InjectedParam.ExtTrigger = DFSDM_FILTER_EXT_TRIG_TIM1_TRGO;
+  hdfsdm1_filter0.Init.InjectedParam.ExtTriggerEdge = DFSDM_FILTER_EXT_TRIG_RISING_EDGE;
   hdfsdm1_filter0.Init.FilterParam.SincOrder = DFSDM_FILTER_FASTSINC_ORDER;
   hdfsdm1_filter0.Init.FilterParam.Oversampling = 1;
   hdfsdm1_filter0.Init.FilterParam.IntOversampling = 1;
@@ -641,6 +647,10 @@ static void MX_DFSDM1_Init(void)
     Error_Handler();
   }
   if (HAL_DFSDM_FilterConfigRegChannel(&hdfsdm1_filter0, DFSDM_CHANNEL_2, DFSDM_CONTINUOUS_CONV_ON) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_DFSDM_FilterConfigInjChannel(&hdfsdm1_filter0, DFSDM_CHANNEL_2) != HAL_OK)
   {
     Error_Handler();
   }
