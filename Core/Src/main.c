@@ -316,27 +316,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	}
 }
 
-/* funkcja do konfiguracji cs */
-
-  static void cs43l22_write(uint8_t reg, uint8_t value)
-  {
-  	HAL_I2C_Mem_Write(&hi2c1, AUDIO_I2C_ADDR, reg, 1, &value, sizeof(value), HAL_MAX_DELAY);
-  }
-
-  //cs44l22_init();
-
-
-  static void cs43l22_set_volume(uint8_t volume)
-  {
-	  // speaker volume
-	  cs43l22_write(0x24, volume);
-	  cs43l22_write(0x25, volume);
-
-	  // headphone volume
-	  cs43l22_write(0x22, volume);
-	  cs43l22_write(0x23, volume);
-  }
-
 // a function to control screen in current mode
 void displayScreen()
 {
@@ -710,8 +689,8 @@ static void MX_DFSDM1_Init(void)
   hdfsdm1_filter0.Init.InjectedParam.DmaMode = DISABLE;
   hdfsdm1_filter0.Init.InjectedParam.ExtTrigger = DFSDM_FILTER_EXT_TRIG_TIM1_TRGO;
   hdfsdm1_filter0.Init.InjectedParam.ExtTriggerEdge = DFSDM_FILTER_EXT_TRIG_RISING_EDGE;
-  hdfsdm1_filter0.Init.FilterParam.SincOrder = DFSDM_FILTER_FASTSINC_ORDER;
-  hdfsdm1_filter0.Init.FilterParam.Oversampling = 1;
+  hdfsdm1_filter0.Init.FilterParam.SincOrder = DFSDM_FILTER_SINC3_ORDER;
+  hdfsdm1_filter0.Init.FilterParam.Oversampling = 64;
   hdfsdm1_filter0.Init.FilterParam.IntOversampling = 1;
   if (HAL_DFSDM_FilterInit(&hdfsdm1_filter0) != HAL_OK)
   {
