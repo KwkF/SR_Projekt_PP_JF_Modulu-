@@ -84,16 +84,8 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define SAI1_MCK_Pin GPIO_PIN_2
-#define SAI1_MCK_GPIO_Port GPIOE
 #define AUDIO_RST_Pin GPIO_PIN_3
 #define AUDIO_RST_GPIO_Port GPIOE
-#define SAI1_FS_Pin GPIO_PIN_4
-#define SAI1_FS_GPIO_Port GPIOE
-#define SAI1_SCK_Pin GPIO_PIN_5
-#define SAI1_SCK_GPIO_Port GPIOE
-#define SAI1_SD_Pin GPIO_PIN_6
-#define SAI1_SD_GPIO_Port GPIOE
 #define MFX_IRQ_OUT_Pin GPIO_PIN_13
 #define MFX_IRQ_OUT_GPIO_Port GPIOC
 #define MAG_INT_Pin GPIO_PIN_1
@@ -133,12 +125,6 @@ void Error_Handler(void);
 #define SEG2_GPIO_Port GPIOB
 #define LD_R_Pin GPIO_PIN_2
 #define LD_R_GPIO_Port GPIOB
-#define AUDIO_DIN_Pin GPIO_PIN_7
-#define AUDIO_DIN_GPIO_Port GPIOE
-#define LD_G_Pin GPIO_PIN_8
-#define LD_G_GPIO_Port GPIOE
-#define AUDIO_CLK_Pin GPIO_PIN_9
-#define AUDIO_CLK_GPIO_Port GPIOE
 #define QSPI_CLK_Pin GPIO_PIN_10
 #define QSPI_CLK_GPIO_Port GPIOE
 #define QSPI_CS_Pin GPIO_PIN_11
