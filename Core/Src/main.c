@@ -109,7 +109,7 @@ static modulus_config_t config;
 
 int32_t dma_rx_buffer[DMA_RX_BUFFER_SIZE*2]={0};
 
-int32_t dma_tx_buffer[DMA_TX_BUFFER_SIZE*2]={0};
+int16_t dma_tx_buffer[DMA_TX_BUFFER_SIZE*2]={0};
 
 float audio_input_buffer[DMA_RX_BUFFER_SIZE]={0.0};
 
@@ -138,23 +138,6 @@ void HAL_DFSDM_FilterRegConvHalfCpltCallback(DFSDM_Filter_HandleTypeDef *hdfsdm_
 	dma_buffer_offset=0;
 }
 
-/*HAL_SAI_Tx*/
-/*void HAL_SAI_TxCpltCallback(SAI_HandleTypeDef *hsai)
-{
-
-	ProcessAudio=false;
-	dma_buffer_offset=1;
-	HAL_SAI_Transmit_DMA(&hsai_BlockB1,dma_tx_buffer,DMA_TX_BUFFER_SIZE*2);
-}
-
-void HAL_SAI_TxHalfCpltCallback(SAI_HandleTypeDef *hsai)
-{
-
-	ProcessAudio=false;
-	dma_buffer_offset=DMA_TX_BUFFER_SIZE;
-
-}*/
-
 
 void from_uint8_to_floats(int32_t* input,float* output)
 {
@@ -167,15 +150,11 @@ void from_uint8_to_floats(int32_t* input,float* output)
 
 }
 
-void from_float_to_uint8(float* input,int32_t* output,size_t input_size)
+void from_float_to_uint8(float* input,int16_t* output,size_t input_size)
 {
-	//int32_t *frames=(int32_t*)output;
-
 	for(size_t i=0;i<input_size;++i)
 	{
-		int32_t val=(int32_t)(input[i]*INT32_MAX);
-
-		//frames[i]=val;
+		int32_t val=(int16_t)(input[i]*32768.f);
 
 		output[i]=val;
 	}
@@ -435,7 +414,7 @@ int main(void)
   MX_SAI1_Init();
   /* USER CODE BEGIN 2 */
 
-  HAL_GPIO_WritePin(M3V3_REG_ON_GPIO_Port,M3V3_REG_ON_Pin,GPIO_PIN_SET);
+  //HAL_GPIO_WritePin(M3V3_REG_ON_GPIO_Port,M3V3_REG_ON_Pin,GPIO_PIN_SET);
 
   HAL_Delay(2000);
 
@@ -524,8 +503,8 @@ int main(void)
 
 	  		  ProcessAudio=false;
 
-	  		  //from_float_to_uint8(audio_output_buffer, dma_tx_buffer, DMA_TX_BUFFER_SIZE);
-	  	      //HAL_SAI_Transmit_DMA(&hsai_BlockA1, (uint8_t*)dma_tx_buffer, DMA_TX_BUFFER_SIZE*sizeof(uint32_t));
+	  		  from_float_to_uint8(audio_output_buffer, dma_tx_buffer, DMA_TX_BUFFER_SIZE*2);
+	  	      HAL_SAI_Transmit_DMA(&hsai_BlockA1, (uint8_t*)dma_tx_buffer, DMA_TX_BUFFER_SIZE*sizeof(int16_t)*2);
 
 
 	  	  }
@@ -853,7 +832,7 @@ static void MX_SAI1_Init(void)
   hsai_BlockA1.Init.MonoStereoMode = SAI_STEREOMODE;
   hsai_BlockA1.Init.CompandingMode = SAI_NOCOMPANDING;
   hsai_BlockA1.Init.TriState = SAI_OUTPUT_NOTRELEASED;
-  if (HAL_SAI_InitProtocol(&hsai_BlockA1, SAI_I2S_STANDARD, SAI_PROTOCOL_DATASIZE_32BIT, 2) != HAL_OK)
+  if (HAL_SAI_InitProtocol(&hsai_BlockA1, SAI_I2S_STANDARD, SAI_PROTOCOL_DATASIZE_16BIT, 2) != HAL_OK)
   {
     Error_Handler();
   }
