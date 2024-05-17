@@ -74,6 +74,15 @@ typedef enum menu_mode{
 
 #define AUDIO_I2C_ADDR	0x94
 
+#define CODEC_AUDIO_POWER_OFF()      HAL_GPIO_WritePin(AUDIO_RESET_GPIO, AUDIO_RESET_PIN, GPIO_PIN_RESET)
+#define CODEC_AUDIO_POWER_ON()       HAL_GPIO_WritePin(AUDIO_RESET_GPIO, AUDIO_RESET_PIN, GPIO_PIN_SET)
+
+/* Audio Reset Pin definition */
+#define AUDIO_RESET_GPIO_CLK_ENABLE()           __HAL_RCC_GPIOE_CLK_ENABLE()
+#define AUDIO_RESET_GPIO_CLK_DISABLE()          __HAL_RCC_GPIOE_CLK_DISABLE()
+#define AUDIO_RESET_PIN                         GPIO_PIN_3
+#define AUDIO_RESET_GPIO                        GPIOE
+
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/

@@ -22,12 +22,17 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+#include "../../../Drivers/BSP/Components/Common/audio.h"
+#include "../../../Drivers/BSP/Components/cs43l22/cs43l22.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
 
 #include "modulus_modes.h"
+
+//#include "../Components/Common/audio.h"
 
 /* USER CODE END Includes */
 
@@ -67,6 +72,8 @@ TIM_HandleTypeDef htim7;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
+
+AUDIO_DrvTypeDef  *audio_drv;
 
 /* USER CODE END PV */
 
@@ -318,19 +325,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
   //cs44l22_init();
 
-  static void cs43l22_Init(void)
-  {
-
-  	HAL_GPIO_WritePin(AUDIO_RST_GPIO_Port, AUDIO_RST_Pin, GPIO_PIN_SET);
-
-  	/*         rejestr |   co wpisuje do rejestru */
-  	/*                                            */
-  	cs43l22_write(0x04, 0b10101111); /*na rejestrze 0x04 ustawia On na Speaker i OFF na Headphones*/
-  	cs43l22_write(0x06, 0b00010100); /* Slave, SCLK not inverted, DSP on, DAC rigth Justified, 32-bits  */
-  	cs43l22_write(0x02, 0b10011110); /* Power-up*/
-  	cs43l22_write(0x05, 0b10000000); /* Clocking auto*/
-
-  }
 
   static void cs43l22_set_volume(uint8_t volume)
   {
@@ -369,6 +363,118 @@ void displayScreen()
 				return;
 			break;
 		}
+}
+
+
+void audio_init()
+{
+	if(CS43L22_ID != cs43l22_drv.ReadID(AUDIO_I2C_ADDR))
+	  {
+	    Error_Handler();
+	  }
+	  audio_drv = &cs43l22_drv;
+	  audio_drv->Reset(AUDIO_I2C_ADDR);
+	  if(0 != audio_drv->Init(AUDIO_I2C_ADDR, OUTPUT_DEVICE_HEADPHONE, 90, AUDIO_FREQUENCY_44K))
+	  {
+	    Error_Handler();
+	  }
+}
+
+void AUDIO_IO_Init(void)
+{
+  GPIO_InitTypeDef  GPIO_InitStruct;
+
+  /* Enable Reset GPIO Clock */
+  AUDIO_RESET_GPIO_CLK_ENABLE();
+
+  /* Audio reset pin configuration */
+  GPIO_InitStruct.Pin = AUDIO_RESET_PIN;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  GPIO_InitStruct.Pull  = GPIO_NOPULL;
+  HAL_GPIO_Init(AUDIO_RESET_GPIO, &GPIO_InitStruct);
+
+  /* I2C bus init */
+  //I2C1_Init();
+
+  /* Power Down the codec */
+  CODEC_AUDIO_POWER_OFF();
+
+  /* wait for a delay to insure registers erasing */
+  HAL_Delay(5);
+
+  /* Power on the codec */
+  CODEC_AUDIO_POWER_ON();
+
+  /* wait for a delay to insure registers erasing */
+  HAL_Delay(5);
+}
+
+/**
+  * @brief  Deinitializes Audio low level.
+  * @retval None
+  */
+void AUDIO_IO_DeInit(void)                       /* TO DO */
+{
+  GPIO_InitTypeDef  GPIO_InitStruct;
+
+  /***********************************************************************/
+  /* In case of battery-supplied powered, there is no audio codec-based
+     features available. Set audio codec I/O default setting */
+  /***********************************************************************/
+  __HAL_RCC_GPIOE_CLK_ENABLE();
+  GPIO_InitStruct.Mode      = GPIO_MODE_OUTPUT_PP  ;
+  GPIO_InitStruct.Pin       = (GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6);
+  GPIO_InitStruct.Pull      = GPIO_PULLDOWN;
+  GPIO_InitStruct.Speed     = GPIO_SPEED_FREQ_VERY_HIGH;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_2, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_3, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_6, GPIO_PIN_RESET);
+
+  /* I2C bus Deinit */
+  //I2C1_DeInit();
+}
+
+/**
+  * @brief  Writes a single data.
+  * @param  Addr: I2C address
+  * @param  Reg: Reg address
+  * @param  Value: Data to be written
+  * @retval None
+  */
+void AUDIO_IO_Write(uint8_t Addr, uint8_t Reg, uint8_t Value)
+{
+
+	HAL_I2C_Mem_Write(&hi2c1, Addr, (uint16_t)Reg, I2C_MEMADD_SIZE_8BIT, &Value, 1, 100);
+
+}
+
+/**
+  * @brief  Reads a single data.
+  * @param  Addr: I2C address
+  * @param  Reg: Reg address
+  * @retval Data to be read
+  */
+uint8_t AUDIO_IO_Read(uint8_t Addr, uint8_t Reg)
+{
+  uint8_t Read_Value = 0;
+
+  HAL_I2C_Mem_Read(&hi2c1, Addr, (uint16_t)Reg, I2C_MEMADD_SIZE_8BIT, &Read_Value, 1, 100);
+
+  return Read_Value;
+}
+
+/**
+  * @brief  AUDIO Codec delay
+  * @param  Delay: Delay in ms
+  * @retval None
+  */
+void AUDIO_IO_Delay(uint32_t Delay)
+{
+  HAL_Delay(Delay);
 }
 
 /* USER CODE END 0 */
@@ -418,7 +524,7 @@ int main(void)
 
   HAL_Delay(2000);
 
-  cs43l22_Init();
+  audio_init();
 
   // load config from flash
 
@@ -428,7 +534,7 @@ int main(void)
 
   LCD_SetContrast(&hlcd,config.contrast);
 
-  cs43l22_set_volume(config.volume);
+  //cs43l22_set_volume(config.volume);
 
   LCD_DisplayStr(&hlcd,"HELLO");
 
@@ -474,7 +580,7 @@ int main(void)
 		  // update contrast
 		  LCD_SetContrast(&hlcd,config.contrast);
 		  // update volume in DAC
-		  cs43l22_set_volume(config.volume);
+		  cs43l22_SetVolume(AUDIO_I2C_ADDR,config.volume);
 
 		  UpdateSettings=false;
 	  }
@@ -504,6 +610,9 @@ int main(void)
 	  		  ProcessAudio=false;
 
 	  		  from_float_to_uint8(audio_output_buffer, dma_tx_buffer, DMA_TX_BUFFER_SIZE*2);
+
+	  		  audio_drv->Play(AUDIO_I2C_ADDR, (uint16_t *) dma_tx_buffer, DMA_TX_BUFFER_SIZE*2);
+
 	  	      HAL_SAI_Transmit_DMA(&hsai_BlockA1, (uint8_t*)dma_tx_buffer, DMA_TX_BUFFER_SIZE*sizeof(int16_t)*2);
 
 
