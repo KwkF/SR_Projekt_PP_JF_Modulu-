@@ -224,7 +224,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			switch(menu_mode)
 			{
 				case SELECT_MODULATION:
-					if( config.mode < MODES_COUNT )
+					if( config.mode < MODES_COUNT-1 )
 					{
 						config.mode++;
 					}
