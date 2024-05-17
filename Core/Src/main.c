@@ -120,7 +120,7 @@ int16_t dma_tx_buffer[DMA_TX_BUFFER_SIZE*2]={0};
 
 float audio_input_buffer[DMA_RX_BUFFER_SIZE]={0.0};
 
-float audio_output_buffer[DMA_RX_BUFFER_SIZE]={0.0};
+float audio_output_buffer[DMA_TX_BUFFER_SIZE]={0.0};
 
 volatile size_t dma_buffer_offset=0;
 
@@ -151,8 +151,7 @@ void from_uint8_to_floats(int32_t* input,float* output)
 
 	for(size_t i=0;i<(DMA_RX_BUFFER_SIZE);++i)
 	{
-		int16_t sample = SaturaLH((input[i] >> 8), -32768, 32767);
-		output[i] = sample/32767.f;
+		output[i] = SaturaLH((input[i] >> 8), -32768, 32767)/32767.f;
 	}
 
 }
@@ -161,9 +160,8 @@ void from_float_to_uint8(float* input,int16_t* output,size_t input_size)
 {
 	for(size_t i=0;i<input_size;++i)
 	{
-		int32_t val=(int16_t)(input[i]*32768.f);
-
-		output[i]=val;
+		output[i*2]=(int16_t)(input[i]*32768.f);
+		output[i*2 +1]=output[i*2];
 	}
 }
 
@@ -588,11 +586,16 @@ int main(void)
 
 	  		  ProcessAudio=false;
 
-	  		  from_float_to_uint8(audio_output_buffer, dma_tx_buffer, DMA_TX_BUFFER_SIZE*2);
+	  		/*for(size_t i=0;i<(DMA_RX_BUFFER_SIZE);++i)
+	  		{
+	  			dma_tx_buffer[i*2] = SaturaLH((dma_buffer[i] >> 8), -32768, 32767);
+	  			dma_tx_buffer[i*2 + 1]=dma_tx_buffer[i*2];
+	  		}*/
+	  		  from_float_to_uint8(audio_output_buffer, dma_tx_buffer, DMA_TX_BUFFER_SIZE);
 
 	  		  audio_drv->Play(AUDIO_I2C_ADDR, (uint16_t *) dma_tx_buffer, DMA_TX_BUFFER_SIZE*2);
 
-	  	      HAL_SAI_Transmit_DMA(&hsai_BlockA1, (uint8_t*)dma_tx_buffer, DMA_TX_BUFFER_SIZE*sizeof(int16_t)*2);
+	  	      HAL_SAI_Transmit_DMA(&hsai_BlockA1, (uint8_t*)dma_tx_buffer, DMA_TX_BUFFER_SIZE*2);
 
 
 	  	  }
@@ -910,17 +913,30 @@ static void MX_SAI1_Init(void)
 
   /* USER CODE END SAI1_Init 1 */
   hsai_BlockA1.Instance = SAI1_Block_A;
+  hsai_BlockA1.Init.Protocol = SAI_FREE_PROTOCOL;
   hsai_BlockA1.Init.AudioMode = SAI_MODEMASTER_TX;
+  hsai_BlockA1.Init.DataSize = SAI_DATASIZE_16;
+  hsai_BlockA1.Init.FirstBit = SAI_FIRSTBIT_MSB;
+  hsai_BlockA1.Init.ClockStrobing = SAI_CLOCKSTROBING_FALLINGEDGE;
   hsai_BlockA1.Init.Synchro = SAI_ASYNCHRONOUS;
-  hsai_BlockA1.Init.OutputDrive = SAI_OUTPUTDRIVE_DISABLE;
+  hsai_BlockA1.Init.OutputDrive = SAI_OUTPUTDRIVE_ENABLE;
   hsai_BlockA1.Init.NoDivider = SAI_MASTERDIVIDER_ENABLE;
-  hsai_BlockA1.Init.FIFOThreshold = SAI_FIFOTHRESHOLD_EMPTY;
+  hsai_BlockA1.Init.FIFOThreshold = SAI_FIFOTHRESHOLD_1QF;
   hsai_BlockA1.Init.AudioFrequency = SAI_AUDIO_FREQUENCY_44K;
   hsai_BlockA1.Init.SynchroExt = SAI_SYNCEXT_DISABLE;
   hsai_BlockA1.Init.MonoStereoMode = SAI_STEREOMODE;
   hsai_BlockA1.Init.CompandingMode = SAI_NOCOMPANDING;
   hsai_BlockA1.Init.TriState = SAI_OUTPUT_NOTRELEASED;
-  if (HAL_SAI_InitProtocol(&hsai_BlockA1, SAI_I2S_STANDARD, SAI_PROTOCOL_DATASIZE_16BIT, 2) != HAL_OK)
+  hsai_BlockA1.FrameInit.FrameLength = 32;
+  hsai_BlockA1.FrameInit.ActiveFrameLength = 16;
+  hsai_BlockA1.FrameInit.FSDefinition = SAI_FS_CHANNEL_IDENTIFICATION;
+  hsai_BlockA1.FrameInit.FSPolarity = SAI_FS_ACTIVE_LOW;
+  hsai_BlockA1.FrameInit.FSOffset = SAI_FS_BEFOREFIRSTBIT;
+  hsai_BlockA1.SlotInit.FirstBitOffset = 0;
+  hsai_BlockA1.SlotInit.SlotSize = SAI_SLOTSIZE_DATASIZE;
+  hsai_BlockA1.SlotInit.SlotNumber = 2;
+  hsai_BlockA1.SlotInit.SlotActive = 0x00000003;
+  if (HAL_SAI_Init(&hsai_BlockA1) != HAL_OK)
   {
     Error_Handler();
   }
