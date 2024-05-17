@@ -62,7 +62,7 @@ typedef enum menu_mode{
 /* USER CODE BEGIN EM */
 
 // with 192kHz sample frequency it is equalivent of 4800
-#define DMA_RX_BUFFER_SIZE 1200
+#define DMA_RX_BUFFER_SIZE 2400
 
 #define DMA_TX_BUFFER_SIZE 1200
 
@@ -74,6 +74,15 @@ typedef enum menu_mode{
 
 #define AUDIO_I2C_ADDR	0x94
 
+#define CODEC_AUDIO_POWER_OFF()      HAL_GPIO_WritePin(AUDIO_RESET_GPIO, AUDIO_RESET_PIN, GPIO_PIN_RESET)
+#define CODEC_AUDIO_POWER_ON()       HAL_GPIO_WritePin(AUDIO_RESET_GPIO, AUDIO_RESET_PIN, GPIO_PIN_SET)
+
+/* Audio Reset Pin definition */
+#define AUDIO_RESET_GPIO_CLK_ENABLE()           __HAL_RCC_GPIOE_CLK_ENABLE()
+#define AUDIO_RESET_GPIO_CLK_DISABLE()          __HAL_RCC_GPIOE_CLK_DISABLE()
+#define AUDIO_RESET_PIN                         GPIO_PIN_3
+#define AUDIO_RESET_GPIO                        GPIOE
+
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
@@ -84,16 +93,8 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define SAI1_MCK_Pin GPIO_PIN_2
-#define SAI1_MCK_GPIO_Port GPIOE
 #define AUDIO_RST_Pin GPIO_PIN_3
 #define AUDIO_RST_GPIO_Port GPIOE
-#define SAI1_FS_Pin GPIO_PIN_4
-#define SAI1_FS_GPIO_Port GPIOE
-#define SAI1_SCK_Pin GPIO_PIN_5
-#define SAI1_SCK_GPIO_Port GPIOE
-#define SAI1_SD_Pin GPIO_PIN_6
-#define SAI1_SD_GPIO_Port GPIOE
 #define MFX_IRQ_OUT_Pin GPIO_PIN_13
 #define MFX_IRQ_OUT_GPIO_Port GPIOC
 #define MAG_INT_Pin GPIO_PIN_1
@@ -133,12 +134,6 @@ void Error_Handler(void);
 #define SEG2_GPIO_Port GPIOB
 #define LD_R_Pin GPIO_PIN_2
 #define LD_R_GPIO_Port GPIOB
-#define AUDIO_DIN_Pin GPIO_PIN_7
-#define AUDIO_DIN_GPIO_Port GPIOE
-#define LD_G_Pin GPIO_PIN_8
-#define LD_G_GPIO_Port GPIOE
-#define AUDIO_CLK_Pin GPIO_PIN_9
-#define AUDIO_CLK_GPIO_Port GPIOE
 #define QSPI_CLK_Pin GPIO_PIN_10
 #define QSPI_CLK_GPIO_Port GPIOE
 #define QSPI_CS_Pin GPIO_PIN_11

@@ -55,8 +55,10 @@
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-extern DMA_HandleTypeDef hdma_sai1_b;
+extern DMA_HandleTypeDef hdma_dfsdm1_flt0;
+extern DFSDM_Filter_HandleTypeDef hdfsdm1_filter0;
 extern DMA_HandleTypeDef hdma_sai1_a;
+extern SAI_HandleTypeDef hsai_BlockA1;
 extern TIM_HandleTypeDef htim6;
 extern TIM_HandleTypeDef htim7;
 /* USER CODE BEGIN EV */
@@ -272,6 +274,20 @@ void EXTI3_IRQHandler(void)
 }
 
 /**
+  * @brief This function handles DMA1 channel4 global interrupt.
+  */
+void DMA1_Channel4_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA1_Channel4_IRQn 0 */
+
+  /* USER CODE END DMA1_Channel4_IRQn 0 */
+  HAL_DMA_IRQHandler(&hdma_dfsdm1_flt0);
+  /* USER CODE BEGIN DMA1_Channel4_IRQn 1 */
+
+  /* USER CODE END DMA1_Channel4_IRQn 1 */
+}
+
+/**
   * @brief This function handles EXTI line[9:5] interrupts.
   */
 void EXTI9_5_IRQHandler(void)
@@ -328,17 +344,31 @@ void DMA2_Channel1_IRQHandler(void)
 }
 
 /**
-  * @brief This function handles DMA2 channel2 global interrupt.
+  * @brief This function handles DFSDM1 filter0 global interrupt.
   */
-void DMA2_Channel2_IRQHandler(void)
+void DFSDM1_FLT0_IRQHandler(void)
 {
-  /* USER CODE BEGIN DMA2_Channel2_IRQn 0 */
+  /* USER CODE BEGIN DFSDM1_FLT0_IRQn 0 */
 
-  /* USER CODE END DMA2_Channel2_IRQn 0 */
-  HAL_DMA_IRQHandler(&hdma_sai1_b);
-  /* USER CODE BEGIN DMA2_Channel2_IRQn 1 */
+  /* USER CODE END DFSDM1_FLT0_IRQn 0 */
+  HAL_DFSDM_IRQHandler(&hdfsdm1_filter0);
+  /* USER CODE BEGIN DFSDM1_FLT0_IRQn 1 */
 
-  /* USER CODE END DMA2_Channel2_IRQn 1 */
+  /* USER CODE END DFSDM1_FLT0_IRQn 1 */
+}
+
+/**
+  * @brief This function handles SAI1 global interrupt.
+  */
+void SAI1_IRQHandler(void)
+{
+  /* USER CODE BEGIN SAI1_IRQn 0 */
+
+  /* USER CODE END SAI1_IRQn 0 */
+  HAL_SAI_IRQHandler(&hsai_BlockA1);
+  /* USER CODE BEGIN SAI1_IRQn 1 */
+
+  /* USER CODE END SAI1_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */
