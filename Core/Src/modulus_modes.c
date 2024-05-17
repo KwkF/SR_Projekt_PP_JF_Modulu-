@@ -17,9 +17,9 @@ void dummy_mode(float* input,float* output)
 
 	arm_rfft_fast_instance_f32 fft;
 
-	arm_rfft_fast_init_f32 (&fft, 4096);
+	arm_rfft_fast_init_f32 (&fft, 512);
 
-	float rfft[4096]={0};
+	float rfft[512]={0};
 
 	arm_rfft_fast_f32(&fft, input, rfft, 0);
 	// vector
