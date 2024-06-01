@@ -34,4 +34,12 @@ flash_status_t N25_erase_sector(QSPI_HandleTypeDef* qspi,uint32_t sector_address
 
 flash_status_t N25_flash_status(QSPI_HandleTypeDef* qspi);
 
+static uint8_t QSPI_ResetMemory(QSPI_HandleTypeDef hqspi);
+
+static uint8_t QSPI_DummyCyclesCfg(QSPI_HandleTypeDefhqspi);
+
+static uint8_t QSPI_WriteEnable(QSPI_HandleTypeDef hqspi);
+
+static uint8_t QSPI_AutoPollingMemReady(QSPI_HandleTypeDefhqspi, uint32_t Timeout);
+
 #endif /* INC_FLASH_H_ */
