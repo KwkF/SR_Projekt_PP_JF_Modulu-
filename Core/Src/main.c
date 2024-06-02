@@ -99,6 +99,7 @@ static void MX_SAI1_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+
 static menu_mode_t menu_mode = SELECT_MODULATION;
 
 static volatile bool ModeChanged = false;
@@ -308,6 +309,10 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			if( menu_mode == ACCEPT_CHANGES)
 			{
 				SaveSettings=true;
+
+				if(SaveSettings==true){
+					N25_flash_write(&hqspi,(uint8_t*)&config,0x00,sizeof(modulus_config_t));
+				}
 			}
 
 		break;
@@ -500,6 +505,8 @@ int main(void)
   //HAL_GPIO_WritePin(M3V3_REG_ON_GPIO_Port,M3V3_REG_ON_Pin,GPIO_PIN_SET);
 
   HAL_Delay(2000);
+
+  N25_flash_read(&hqspi,(uint8_t*)&config,0x00,sizeof(modulus_config_t));
 
   audio_init();
 
