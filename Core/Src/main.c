@@ -512,9 +512,14 @@ int main(void)
 
   // load config from flash
 
-  config.mode=0;
-  config.volume=150;
-  config.contrast=255;
+  if(!config.first_write)
+  {
+
+	  config.mode=0;
+	  config.volume=150;
+	  config.contrast=255;
+
+  }
 
   LCD_SetContrast(&hlcd,config.contrast);
 
@@ -572,6 +577,11 @@ int main(void)
 	  if(SaveSettings)
 	  {
 		  SaveSettings=false;
+
+		  config.first_write=1;
+
+		  N25_flash_write(&hqspi,(uint8_t*)&config,0x00,sizeof(modulus_config_t));
+
 	  }
 
 	  if(ProcessAudio)
