@@ -46,12 +46,13 @@ void freq_shift(float* input,float* output)
 		// vector
 
 		float out_fft[2048]={0};
+		out_fft[0] = rfft[0];
 
-		memmove(out_fft,rfft + 10*sizeof(float),(2048-10)*sizeof(float));
+		//memmove(out_fft,rfft + 100*sizeof(float),(2048-100)*sizeof(float));
 
 		for(size_t i=0;i<2048-100;++i)
 		{
-			out_fft[i+100]=rfft[i];
+			out_fft[i+100]=rfft[i+1];
 		}
 
 		// rfft

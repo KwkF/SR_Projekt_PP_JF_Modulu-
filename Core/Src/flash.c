@@ -8,179 +8,13 @@
 
 #include "flash.h"
 
-/*************************************************************/
-/*Function for reset of OSPI Memory*/
+static uint8_t QSPI_ResetMemory(QSPI_HandleTypeDef* hqspi);
 
-static uint8_t QSPI_ResetMemory(QSPI_HandleTypeDef *hqspi)
-{
-  QSPI_CommandTypeDef sCommand;
+static uint8_t QSPI_DummyCyclesCfg(QSPI_HandleTypeDef* hqspi);
 
-  /* Initialize the reset enable command */
-  sCommand.InstructionMode   = QSPI_INSTRUCTION_1_LINE;
-  sCommand.Instruction       = RESET_ENABLE_CMD;
-  sCommand.AddressMode       = QSPI_ADDRESS_NONE;
-  sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
-  sCommand.DataMode          = QSPI_DATA_NONE;
-  sCommand.DummyCycles       = 0;
-  sCommand.DdrMode           = QSPI_DDR_MODE_DISABLE;
-  sCommand.DdrHoldHalfCycle  = QSPI_DDR_HHC_ANALOG_DELAY;
-  sCommand.SIOOMode          = QSPI_SIOO_INST_EVERY_CMD;
+static uint8_t QSPI_WriteEnable(QSPI_HandleTypeDef* hqspi);
 
-  /* Send the command */
-  if (HAL_QSPI_Command(hqspi, &sCommand, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
-  {
-    return FLASH_ERROR;
-  }
-
-  /* Send the reset memory command */
-  sCommand.Instruction = RESET_MEMORY_CMD;
-  if (HAL_QSPI_Command(hqspi, &sCommand, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
-  {
-    return FLASH_ERROR;
-  }
-
-  /* Configure automatic polling mode to wait the memory is ready */
-  if (QSPI_AutoPollingMemReady(hqspi, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != FLASH_OK)
-  {
-    return FLASH_ERROR;
-  }
-
-  return FLASH_OK;
-}
-
-/*
- * Function for configuring dummy cycles on memory side
-*/
-static uint8_t QSPI_DummyCyclesCfg(QSPI_HandleTypeDef *hqspi)
-{
-  QSPI_CommandTypeDef sCommand;
-  uint8_t reg;
-
-  /* Initialize the read volatile configuration register command */
-  sCommand.InstructionMode   = QSPI_INSTRUCTION_1_LINE;
-  sCommand.Instruction       = READ_VOL_CFG_REG_CMD;
-  sCommand.AddressMode       = QSPI_ADDRESS_NONE;
-  sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
-  sCommand.DataMode          = QSPI_DATA_1_LINE;
-  sCommand.DummyCycles       = 0;
-  sCommand.NbData            = 1;
-  sCommand.DdrMode           = QSPI_DDR_MODE_DISABLE;
-  sCommand.DdrHoldHalfCycle  = QSPI_DDR_HHC_ANALOG_DELAY;
-  sCommand.SIOOMode          = QSPI_SIOO_INST_EVERY_CMD;
-
-  /* Configure the command */
-  if (HAL_QSPI_Command(hqspi, &sCommand, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
-  {
-    return FLASH_ERROR;
-  }
-
-  /* Reception of the data */
-  if (HAL_QSPI_Receive(hqspi, &reg, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
-  {
-    return FLASH_ERROR;
-  }
-
-  /* Enable write operations */
-  if (QSPI_WriteEnable(hqspi) != FLASH_OK)
-  {
-    return FLASH_ERROR;
-  }
-
-  /* Update volatile configuration register (with new dummy cycles) */
-  sCommand.Instruction = WRITE_VOL_CFG_REG_CMD;
-  MODIFY_REG(reg, N25Q128A_VCR_NB_DUMMY, (N25Q128A_DUMMY_CYCLES_READ_QUAD << POSITION_VAL(N25Q128A_VCR_NB_DUMMY)));
-
-  /* Configure the write volatile configuration register command */
-  if (HAL_QSPI_Command(hqspi, &sCommand, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
-  {
-    return FLASH_ERROR;
-  }
-
-  /* Transmission of the data */
-  if (HAL_QSPI_Transmit(hqspi, &reg, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
-  {
-    return FLASH_ERROR;
-  }
-
-  return FLASH_OK;
-}
-
-/*
- * Function for allowing to wrote into QSPI
- */
-static uint8_t QSPI_WriteEnable(QSPI_HandleTypeDef *hqspi)
-{
-  QSPI_CommandTypeDef     sCommand;
-  QSPI_AutoPollingTypeDef sConfig;
-
-  /* Enable write operations */
-  sCommand.InstructionMode   = QSPI_INSTRUCTION_1_LINE;
-  sCommand.Instruction       = WRITE_ENABLE_CMD;
-  sCommand.AddressMode       = QSPI_ADDRESS_NONE;
-  sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
-  sCommand.DataMode          = QSPI_DATA_NONE;
-  sCommand.DummyCycles       = 0;
-  sCommand.DdrMode           = QSPI_DDR_MODE_DISABLE;
-  sCommand.DdrHoldHalfCycle  = QSPI_DDR_HHC_ANALOG_DELAY;
-  sCommand.SIOOMode          = QSPI_SIOO_INST_EVERY_CMD;
-
-  if (HAL_QSPI_Command(hqspi, &sCommand, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
-  {
-    return FLASH_ERROR;
-  }
-
-  /* Configure automatic polling mode to wait for write enabling */
-  sConfig.Match           = N25Q128A_SR_WREN;
-  sConfig.Mask            = N25Q128A_SR_WREN;
-  sConfig.MatchMode       = QSPI_MATCH_MODE_AND;
-  sConfig.StatusBytesSize = 1;
-  sConfig.Interval        = 0x10;
-  sConfig.AutomaticStop   = QSPI_AUTOMATIC_STOP_ENABLE;
-
-  sCommand.Instruction    = READ_STATUS_REG_CMD;
-  sCommand.DataMode       = QSPI_DATA_1_LINE;
-
-  if (HAL_QSPI_AutoPolling(hqspi, &sCommand, &sConfig, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
-  {
-    return FLASH_ERROR;
-  }
-
-  return FLASH_OK;
-}
-
-/*
- * Function reading SR of the memory
- */
-static uint8_t QSPI_AutoPollingMemReady(QSPI_HandleTypeDef *hqspi, uint32_t Timeout)
-{
-  QSPI_CommandTypeDef     sCommand;
-  QSPI_AutoPollingTypeDef sConfig;
-
-  /* Configure automatic polling mode to wait for memory ready */
-  sCommand.InstructionMode   = QSPI_INSTRUCTION_1_LINE;
-  sCommand.Instruction       = READ_STATUS_REG_CMD;
-  sCommand.AddressMode       = QSPI_ADDRESS_NONE;
-  sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
-  sCommand.DataMode          = QSPI_DATA_1_LINE;
-  sCommand.DummyCycles       = 0;
-  sCommand.DdrMode           = QSPI_DDR_MODE_DISABLE;
-  sCommand.DdrHoldHalfCycle  = QSPI_DDR_HHC_ANALOG_DELAY;
-  sCommand.SIOOMode          = QSPI_SIOO_INST_EVERY_CMD;
-
-  sConfig.Match           = 0;
-  sConfig.Mask            = N25Q128A_SR_WIP;
-  sConfig.MatchMode       = QSPI_MATCH_MODE_AND;
-  sConfig.StatusBytesSize = 1;
-  sConfig.Interval        = 0x10;
-  sConfig.AutomaticStop   = QSPI_AUTOMATIC_STOP_ENABLE;
-
-  if (HAL_QSPI_AutoPolling(hqspi, &sCommand, &sConfig, Timeout) != HAL_OK)
-  {
-    return FLASH_ERROR;
-  }
-
-  return FLASH_OK;
-}
+static uint8_t QSPI_AutoPollingMemReady(QSPI_HandleTypeDef* hqspi, uint32_t Timeout);
 
 // write byte to flash at specified address
 flash_status_t N25_flash_write(QSPI_HandleTypeDef* qspi,uint8_t* data,uint32_t write_addr, uint32_t size)
@@ -434,6 +268,182 @@ flash_status_t N25_flash_status(QSPI_HandleTypeDef* qspi)
 	  {
 	    return FLASH_BUSY;
 	  }
+}
+
+
+
+/*************************************************************/
+/*Function for reset of OSPI Memory*/
+
+static uint8_t QSPI_ResetMemory(QSPI_HandleTypeDef *hqspi)
+{
+  QSPI_CommandTypeDef sCommand;
+
+  /* Initialize the reset enable command */
+  sCommand.InstructionMode   = QSPI_INSTRUCTION_1_LINE;
+  sCommand.Instruction       = RESET_ENABLE_CMD;
+  sCommand.AddressMode       = QSPI_ADDRESS_NONE;
+  sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
+  sCommand.DataMode          = QSPI_DATA_NONE;
+  sCommand.DummyCycles       = 0;
+  sCommand.DdrMode           = QSPI_DDR_MODE_DISABLE;
+  sCommand.DdrHoldHalfCycle  = QSPI_DDR_HHC_ANALOG_DELAY;
+  sCommand.SIOOMode          = QSPI_SIOO_INST_EVERY_CMD;
+
+  /* Send the command */
+  if (HAL_QSPI_Command(hqspi, &sCommand, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
+  {
+    return FLASH_ERROR;
+  }
+
+  /* Send the reset memory command */
+  sCommand.Instruction = RESET_MEMORY_CMD;
+  if (HAL_QSPI_Command(hqspi, &sCommand, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
+  {
+    return FLASH_ERROR;
+  }
+
+  /* Configure automatic polling mode to wait the memory is ready */
+  if (QSPI_AutoPollingMemReady(hqspi, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != FLASH_OK)
+  {
+    return FLASH_ERROR;
+  }
+
+  return FLASH_OK;
+}
+
+/*
+ * Function for configuring dummy cycles on memory side
+*/
+static uint8_t QSPI_DummyCyclesCfg(QSPI_HandleTypeDef *hqspi)
+{
+  QSPI_CommandTypeDef sCommand;
+  uint8_t reg;
+
+  /* Initialize the read volatile configuration register command */
+  sCommand.InstructionMode   = QSPI_INSTRUCTION_1_LINE;
+  sCommand.Instruction       = READ_VOL_CFG_REG_CMD;
+  sCommand.AddressMode       = QSPI_ADDRESS_NONE;
+  sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
+  sCommand.DataMode          = QSPI_DATA_1_LINE;
+  sCommand.DummyCycles       = 0;
+  sCommand.NbData            = 1;
+  sCommand.DdrMode           = QSPI_DDR_MODE_DISABLE;
+  sCommand.DdrHoldHalfCycle  = QSPI_DDR_HHC_ANALOG_DELAY;
+  sCommand.SIOOMode          = QSPI_SIOO_INST_EVERY_CMD;
+
+  /* Configure the command */
+  if (HAL_QSPI_Command(hqspi, &sCommand, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
+  {
+    return FLASH_ERROR;
+  }
+
+  /* Reception of the data */
+  if (HAL_QSPI_Receive(hqspi, &reg, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
+  {
+    return FLASH_ERROR;
+  }
+
+  /* Enable write operations */
+  if (QSPI_WriteEnable(hqspi) != FLASH_OK)
+  {
+    return FLASH_ERROR;
+  }
+
+  /* Update volatile configuration register (with new dummy cycles) */
+  sCommand.Instruction = WRITE_VOL_CFG_REG_CMD;
+  MODIFY_REG(reg, N25Q128A_VCR_NB_DUMMY, (N25Q128A_DUMMY_CYCLES_READ_QUAD << POSITION_VAL(N25Q128A_VCR_NB_DUMMY)));
+
+  /* Configure the write volatile configuration register command */
+  if (HAL_QSPI_Command(hqspi, &sCommand, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
+  {
+    return FLASH_ERROR;
+  }
+
+  /* Transmission of the data */
+  if (HAL_QSPI_Transmit(hqspi, &reg, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
+  {
+    return FLASH_ERROR;
+  }
+
+  return FLASH_OK;
+}
+
+/*
+ * Function for allowing to wrote into QSPI
+ */
+static uint8_t QSPI_WriteEnable(QSPI_HandleTypeDef *hqspi)
+{
+  QSPI_CommandTypeDef     sCommand;
+  QSPI_AutoPollingTypeDef sConfig;
+
+  /* Enable write operations */
+  sCommand.InstructionMode   = QSPI_INSTRUCTION_1_LINE;
+  sCommand.Instruction       = WRITE_ENABLE_CMD;
+  sCommand.AddressMode       = QSPI_ADDRESS_NONE;
+  sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
+  sCommand.DataMode          = QSPI_DATA_NONE;
+  sCommand.DummyCycles       = 0;
+  sCommand.DdrMode           = QSPI_DDR_MODE_DISABLE;
+  sCommand.DdrHoldHalfCycle  = QSPI_DDR_HHC_ANALOG_DELAY;
+  sCommand.SIOOMode          = QSPI_SIOO_INST_EVERY_CMD;
+
+  if (HAL_QSPI_Command(hqspi, &sCommand, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
+  {
+    return FLASH_ERROR;
+  }
+
+  /* Configure automatic polling mode to wait for write enabling */
+  sConfig.Match           = N25Q128A_SR_WREN;
+  sConfig.Mask            = N25Q128A_SR_WREN;
+  sConfig.MatchMode       = QSPI_MATCH_MODE_AND;
+  sConfig.StatusBytesSize = 1;
+  sConfig.Interval        = 0x10;
+  sConfig.AutomaticStop   = QSPI_AUTOMATIC_STOP_ENABLE;
+
+  sCommand.Instruction    = READ_STATUS_REG_CMD;
+  sCommand.DataMode       = QSPI_DATA_1_LINE;
+
+  if (HAL_QSPI_AutoPolling(hqspi, &sCommand, &sConfig, HAL_QPSI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
+  {
+    return FLASH_ERROR;
+  }
+
+  return FLASH_OK;
+}
+
+/*
+ * Function reading SR of the memory
+ */
+static uint8_t QSPI_AutoPollingMemReady(QSPI_HandleTypeDef *hqspi, uint32_t Timeout)
+{
+  QSPI_CommandTypeDef     sCommand;
+  QSPI_AutoPollingTypeDef sConfig;
+
+  /* Configure automatic polling mode to wait for memory ready */
+  sCommand.InstructionMode   = QSPI_INSTRUCTION_1_LINE;
+  sCommand.Instruction       = READ_STATUS_REG_CMD;
+  sCommand.AddressMode       = QSPI_ADDRESS_NONE;
+  sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
+  sCommand.DataMode          = QSPI_DATA_1_LINE;
+  sCommand.DummyCycles       = 0;
+  sCommand.DdrMode           = QSPI_DDR_MODE_DISABLE;
+  sCommand.DdrHoldHalfCycle  = QSPI_DDR_HHC_ANALOG_DELAY;
+  sCommand.SIOOMode          = QSPI_SIOO_INST_EVERY_CMD;
+
+  sConfig.Match           = 0;
+  sConfig.Mask            = N25Q128A_SR_WIP;
+  sConfig.MatchMode       = QSPI_MATCH_MODE_AND;
+  sConfig.StatusBytesSize = 1;
+  sConfig.Interval        = 0x10;
+  sConfig.AutomaticStop   = QSPI_AUTOMATIC_STOP_ENABLE;
+
+  if (HAL_QSPI_AutoPolling(hqspi, &sCommand, &sConfig, Timeout) != HAL_OK)
+  {
+    return FLASH_ERROR;
+  }
+
+  return FLASH_OK;
 }
 
 
