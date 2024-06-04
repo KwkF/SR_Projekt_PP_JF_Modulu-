@@ -310,9 +310,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			{
 				SaveSettings=true;
 
-				if(SaveSettings==true){
-					N25_flash_write(&hqspi,(uint8_t*)&config,0x00,sizeof(modulus_config_t));
-				}
 			}
 
 		break;
@@ -512,7 +509,7 @@ int main(void)
 
   // load config from flash
 
-  if(!config.first_write)
+  if(config.first_write != 1)
   {
 
 	  config.mode=0;
